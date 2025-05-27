@@ -71,8 +71,8 @@ def print_buffers(qsize):
 def id_0x1A0(msg):
     data = msg.data
 
-    # Bit 3 del byte 1 -> lleva datos de freno
-    brake_pedal = (data[1] >> 3) & 0x01     # 1 = not pressed, 0 = pressed
+    # Bit 3 del byte 1 -> lleva datos de freno - 1 = not pressed, 0 = pressed (TODO -Revisar)
+    brake_pedal = get_from_bit_to_bit(data, 17, 15, 'little', False, 0.01, 0)
     
     # Plataforma PQ: Geschwindigkeit_neu__Bremse_1_, en km/h
     speed = get_from_bit_to_bit(data, 17, 15, 'little', False, 0.01, 0)
@@ -99,35 +99,38 @@ def id_0x3A0(msg):
     data = msg.data
 
     # Plataforma PQ: B10_QB_Wegimp_HR, 0 conectado 1 desconectado
-    alive_wrr = get_from_bit_to_bit(data, 15, 1, 'little', False, 1, 0)
+    alive_wrr = f'Alive' if get_from_bit_to_bit(data, 15, 1, 'little', False, 1, 0) == 0 else 'Disconnected'
+    # Plataforma PQ: B10_QB_Fahrtr_HR, 0 back 1 forward (dirección rueda)
+    dir_wrr = f'Forward' if get_from_bit_to_bit(data, 59, 1, 'little', False, 1, 0) == 1 else 'Backwards'
     # Plataforma PQ: B10_Wegimp_HR, contador trasera derecha
     counter_wrr = get_from_bit_to_bit(data, 46, 10, 'little', False, 1, 0)
     
     # Plataforma PQ: B10_QB_Wegimp_HL, 0 conectado 1 desconectado
-    alive_wrl = get_from_bit_to_bit(data, 14, 1, 'little', False, 1, 0)
+    alive_wrl = f'Alive' if get_from_bit_to_bit(data, 14, 1, 'little', False, 1, 0) == 0 else 'Disconnected'
+    # Plataforma PQ: B10_QB_Fahrtr_HL, 0 back 1 forward (dirección rueda)
+    dir_wrl = f'Forward' if get_from_bit_to_bit(data, 58, 1, 'little', False, 1, 0) == 1 else 'Backwards'
     # Plataforma PQ: B10_Wegimp_HL, contador trasera izqda
     counter_wrl = get_from_bit_to_bit(data, 36, 10, 'little', False, 1, 0)
     
     # Plataforma PQ: B10_Wegimp_VR, 0 conectado 1 desconectado
-    alive_wfr = get_from_bit_to_bit(data, 13, 1, 'little', False, 1, 0)
+    alive_wfr = f'Alive' if get_from_bit_to_bit(data, 13, 1, 'little', False, 1, 0) == 0 else 'Disconnected'
+    # Plataforma PQ: B10_QB_Fahrtr_VR, 0 back 1 forward (dirección rueda)
+    dir_wfr = f'Forward' if get_from_bit_to_bit(data, 57, 1, 'little', False, 1, 0) == 1 else 'Backwards'
     # Plataforma PQ: B10_QB_Wegimp_VR, contador delantera derecha
     counter_wfr = get_from_bit_to_bit(data, 26, 10, 'little', False, 1, 0)
     
     # Plataforma PQ: B10_QB_Wegimp_VL, 0 conectado 1 desconectado
-    alive_wfl = get_from_bit_to_bit(data, 12, 1, 'little', False, 1, 0)
+    alive_wfl = f'Alive' if get_from_bit_to_bit(data, 12, 1, 'little', False, 1, 0) == 0 else 'Disconnected'
+    # Plataforma PQ: B10_QB_Fahrtr_VL, 0 back 1 forward (dirección rueda)
+    dir_wfl = f'Forward' if get_from_bit_to_bit(data, 56, 1, 'little', False, 1, 0) == 1 else 'Backwards'
     # Plataforma PQ: B10_Wegimp_VL, contador delantera izqda
     counter_wfl = get_from_bit_to_bit(data, 16, 10, 'little', False, 1, 0)
     
-    alive_wfl = f'Connected' if alive_wfl == 0 else 'Disconnected'
-    alive_wfr = f'Connected' if alive_wfr == 0 else 'Disconnected'
-    alive_wrr = f'Connected' if alive_wrr == 0 else 'Disconnected'
-    alive_wrl = f'Connected' if alive_wrl == 0 else 'Disconnected'
-    
     buffer = f"\n----ARBID 0x3a0---- {can_listener_print_by_id('0x3a0')}"
-    buffer += f"Counter FR Wheel: {counter_wfr} ({alive_wfr})\n"
-    buffer += f"Counter FL Wheel: {counter_wfl} ({alive_wfl})\n"
-    buffer += f"Counter RR Wheel: {counter_wrr} ({alive_wrr})\n"
-    buffer += f"Counter RL Wheel: {counter_wrl} ({alive_wrl})\n"
+    buffer += f"FR Wheel: Count - {counter_wfr} ({dir_wfr}, {alive_wfr})\n"
+    buffer += f"FL Wheel: Count - {counter_wfl} ({dir_wfl}, {alive_wfl})\n"
+    buffer += f"RR Wheel: Count - {counter_wrr} ({dir_wrr}, {alive_wrr})\n"
+    buffer += f"RL Wheel: Count - {counter_wrl} ({dir_wrl}, {alive_wrl})\n"
     
     add_to_buffer("0x3a0", buffer)
 
@@ -179,12 +182,12 @@ def id_0x5A0(data):
     ddl_light = get_from_bit_to_bit(data, 53, 1, 'little', False, 1, 0)
 
     # Plataforma PQ: gemessene_Querbeschleunigung
-    # Indicador de desplazamiento lateral
-    lateral = get_from_bit_to_bit(data, 63, 1, 'little', False, 1, 0)
+    # Indicador de aceleración transversal
+    transversal = get_from_bit_to_bit(data, 0, 8, 'little', False, 0.01, -1.27)
 
-    # Extraer velocidad (AA) - bytes 1 y 2 (LSB primero)
-    AA = data[1] + (data[2] << 8)
-    speed = AA / 148  # km/h
+    # Plataforma PQ: BR2_mi_Radgeschw (not found on DBC)
+    # Revoluciones medias por rueda
+    rev_median = get_from_bit_to_bit(data, 9, 14, 'little', False, 1, 0)
 
     # Extraer contador de distancia (BB) - bytes 5 y 6 (LSB primero)
     BB = data[5] + (data[6] << 8)
@@ -196,8 +199,9 @@ def id_0x5A0(data):
     
     buffer = f"\n----ARBID 0x5a0---- {can_listener_print_by_id('0x5a0')}"
     buffer += f"DDL Light (Gas cut): {'ON' if ddl_light else 'OFF' }\n"
-    buffer += f"Lateral Movement: {lateral}\n"
+    buffer += f"Transversal Acceleration: {transversal:.2f} g\n"
     buffer += f"Distancia: {distancia} (m)\n"
+    buffer += f"Median speed/wheel: {rev_median} rpm\n"
     buffer += f"Presion: {presion_adv}\n"
     
     add_to_buffer("0x5a0", buffer)
@@ -222,8 +226,7 @@ def id_0x4A8(msg):
     brake_act_str = brake_pressure_dic.get(brake_act, f"{brake_act}")
     
     buffer = f"\n----ARBID 0x4a8---- {can_listener_print_by_id('0x4a8')}"
-    buffer += f"Brake Pressure: {brake_press:.2f} bar\n"
-    buffer += f"Brake Pressure: {brake_str} (raw)\n"
+    buffer += f"Brake Pressure: {brake_press:.2f} bar  //  {brake_str} (raw)\n"
     buffer += f"Yaw Rate Sensor: {yaw_rate:.2f} grad/s\n"
     buffer += f"Brake Actuation by ABS: {brake_act_str}\n"
     
